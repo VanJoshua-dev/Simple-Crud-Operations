@@ -53,7 +53,7 @@ function LoginPage() {
     if (!window.confirm("Are you sure you want to delete this user?")) return;
     try {
       await fetch("http://localhost:5000/api/deleteUser", {
-        method: "DELETE", // or DELETE (better REST practice)
+        method: "DELETE",
         headers: {
           "Content-Type": "application/json",
         },

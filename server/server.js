@@ -20,6 +20,7 @@ app.get("/api/getUsers", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 app.post("/api/addUser", async (req, res) => {
   try {
     const { userName, lastName } = req.body;

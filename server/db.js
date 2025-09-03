@@ -16,7 +16,7 @@ async function connectDB() {
       });
       console.log("Server is connected to database.");
     } catch (err) {
-      console.error("❌ Database connection failed:", err);
+      console.error("Database connection failed:", err);
       throw err;
     }
   }
