@@ -1,1 +1,5 @@
 @import "tailwindcss";
+
+.colored-toast.swal2-icon-success {
+  background-color: #4caf50 !important;
+}
