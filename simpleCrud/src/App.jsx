@@ -1,13 +1,37 @@
-
 import './App.css'
 import React from 'react'
+import AdminPanel from './pages/AdminPanel'
+import {Route, Routes} from 'react-router-dom'
+import UserPage from './pages/UserPage'
 import LoginPage from './pages/LoginPage'
-function App() {
+import ProtectedRoute from './ProtectPages'
+import PageNotFound from './PageNotFound/PageNotFound'
 
+function App() {
   return (
-   <div className=" h-screen w-screen">
-      <LoginPage />
-    </div>
+   <Routes>
+    <Route path='/' element={<LoginPage />} />
+
+    <Route
+      path='/userPage'
+      element={
+        <ProtectedRoute role="user">
+          <UserPage />
+        </ProtectedRoute>
+      }
+    />
+
+    <Route
+      path='/adminPage'
+      element={
+        <ProtectedRoute role="admin">
+          <AdminPanel />
+        </ProtectedRoute>
+      }
+    />
+
+    <Route path='*' element={<PageNotFound />} />
+   </Routes>
   )
 }
 

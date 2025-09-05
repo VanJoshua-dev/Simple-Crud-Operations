@@ -1,168 +1,78 @@
 import React, { useState, useEffect } from "react";
-import EditModal from "../modals/EditModal";
 import Swal from "sweetalert2";
 import { TypingDotsLoader } from "react-loaderkit";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../AuthContext";
 function LoginPage() {
   const [username, setUsername] = useState("");
   const [lastname, setLastname] = useState("");
-  const [users, setUsers] = useState([]);
-  const [reload, setReload] = useState(false);
-  const [showEdit, setShowEdit] = useState(false);
-  const [editID, setEditId] = useState("");
-  // handle on que
-  const [onQueUser, setOnQueUser] = useState("");
-  const [onQueLastName, setOnQueLastName] = useState("");
-  const [complete, setComplete] = useState(false);
   const [loading, setLoading] = useState(null);
-  const [fetchStatus, setFetchStatus] = useState(null);
+  const { setAuth } = useAuth();
+  const navigate = useNavigate();
   //handle login
-  const handleAdd = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    setLoading("add");
+    setLoading("login");
 
     try {
-      const res = await fetch("http://localhost:5000/api/addUser", {
+      const res = await fetch("http://localhost:5001/api/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ userName: username, lastName: lastname }),
+        body: JSON.stringify({ username, lastname }),
+        credentials: "include",
       });
 
+      const data = await res.json(); 
+
       if (res.ok) {
-        Swal.fire({
-          title: `${username} ${lastname} has been added to the database.`,
+        await Swal.fire({
+          title: "Login Successfully.",
           icon: "success",
-          draggable: false,
+          showConfirmButton: false,
+          timer: 1500,
+          didClose: () => {
+            setAuth({ accessToken: data.accessToken, role: data.role, userName: data.user.userName });
+            if (data.role === "admin") {
+              navigate("/adminPage");
+            } else {
+              navigate("/userPage");
+            }
+          },
         });
-        
+
         setUsername("");
         setLastname("");
       } else {
-        Swal.fire({
+        await Swal.fire({
           icon: "error",
-          title: "Oops...",
-          text: "Something went wrong!",
+          title: "",
+          text: data.error || "Something went wrong!",
         });
       }
     } catch (error) {
       console.error("Something went wrong...", error);
-      Swal.fire({
+      await Swal.fire({
         icon: "error",
         title: "Oops...",
         text: "Network error or server is down!",
       });
     } finally {
       setLoading(null);
-      setReload((prev) => !prev);
     }
   };
 
-  //handle fetch
-  useEffect(() => {
-    setFetchStatus("fetching");
-    const fetchUser = async () => {
-      try {
-        const res = await fetch("http://localhost:5000/api/getUsers");
-
-        if (!res.ok) {
-          setFetchStatus("fetchFailed");
-          return;
-        }
-
-        const data = await res.json();
-        console.log("Server response:", data);
-
-        if (!data.results || data.results.length === 0) {
-          setFetchStatus("empty");
-        } else {
-          setUsers(data.results);
-          setFetchStatus(null); 
-        }
-      } catch (error) {
-        console.error("Fetch error:", error);
-        setFetchStatus("fetchFailed");
-      }
-    };
-
-    fetchUser();
-  }, [reload]);
-
-  //handle Delete
-  const handleDelete = async (id) => {
-    const result = await Swal.fire({
-      title: "Are you sure?",
-      text: "You won't be able to revert this!",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Yes, delete it!",
-      showLoaderOnConfirm: true,
-      allowOutsideClick: () => !Swal.isLoading(),
-      preConfirm: async () => {
-        try {
-          const response = await fetch("http://localhost:5000/api/deleteUser", {
-            method: "DELETE",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ userID: id }),
-          });
-
-          if (!response.ok) {
-            throw new Error("Delete failed");
-          }
-
-          return true; // success
-        } catch (error) {
-          Swal.showValidationMessage(`Request failed: ${error}`);
-          setReload((prev) => !prev);
-          return false;
-        }
-      },
-    });
-
-    if (result.isConfirmed) {
-      await Swal.fire({
-        title: "Deleted!",
-        text: "Your file has been deleted.",
-        icon: "success",
-      });
-      setReload((prev) => !prev);
-    }
-  };
-
-  useEffect(() => {
-    if (complete) {
-      Swal.fire({
-        title: onQueUser + " " + onQueLastName + " has been updated.",
-        icon: "success",
-        draggable: false,
-      });
-    }
-    setComplete(false);
-  }, [complete]);
-  //handle pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const usersPerPage = 5; // show 5 users per page
-
-  // Calculate indexes
-  const indexOfLastUser = currentPage * usersPerPage;
-  const indexOfFirstUser = indexOfLastUser - usersPerPage;
-  const currentUsers = users.slice(indexOfFirstUser, indexOfLastUser);
-  //Calvulate total pages
-  const totalPages = Math.ceil(users.length / usersPerPage);
   return (
-    <div className="h-screen w-screen flex flex-col justify-center items-center gap-5">
+    <div className="h-screen w-screen flex flex-col  items-center gap-5">
       <h1 className="text-3xl w-full bg-blue-400 text-center py-2 font-semibold text-white">
-        Simple Crud
+        Welcome to Simple Crud
       </h1>
       <div className="p-2 min-w-90 bg-gray-200 flex justify-center items-center flex-col shadow-gray-600 shadow-lg rounded-sm">
         <h1 className="bg-gray-500 w-full text-center text-white text-2xl">
-          Add User
+          Login Here
         </h1>
-        <form onSubmit={handleAdd} className="w-full flex flex-col gap-3">
+        <form onSubmit={handleLogin} className="w-full flex flex-col gap-3">
           <div className="flex flex-col">
             <label htmlFor="username">Username</label>
             <input
@@ -189,163 +99,17 @@ function LoginPage() {
             type="submit"
             className="bg-blue-500 w-full rounded-sm py-2 text-white hover:bg-blue-700"
           >
-            {loading === "add" ? (
+            {loading === "login" ? (
               <span className="flex justify-center items-center gap-2">
-                Adding
+                Logging in
                 <TypingDotsLoader size={40} color="white" speed={1} />
               </span>
             ) : (
-              "Add"
+              "Login"
             )}
           </button>
         </form>
       </div>
-      {/* fetch data */}
-      <div className="p-2 w-full h-full bg-gray-200 flex items-center flex-col shadow-gray-600 shadow-2xl rounded-sm">
-        <table className="min-w-full h-full  divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Firstname
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                lastName
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                colSpan={2}
-              >
-                Action
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {fetchStatus === "empty" ? (
-              <td colSpan={3} className="w-full text-center text-2xl">
-                No data yet.
-              </td>
-            ) : fetchStatus === "fetchFailed" ? (
-              <td colSpan={3} className="w-full text-center">
-                <p className="text-3xl font-semibold">Failed to fetch 😕</p>
-                <p className="text-xl">Network error or server is down.</p>
-                <button
-                  className="py-1 px-4 mt-6 rounded-sm bg-red-500 border-gray-900 border-2 hover:bg-red-700 text-white text-lg"
-                  onClick={() => setReload(!reload)}
-                >
-                  Retry
-                </button>
-              </td>
-            ) : fetchStatus === "fetching" ? (
-              <td colSpan={3} className="text-2xl">
-                <div className="w-full flex justify-center items-center gap-2">
-                  Fetching Data
-                  <TypingDotsLoader size={40} color="#111825" speed={1} />
-                </div>
-              </td>
-            ) : fetchStatus === null ? (
-              currentUsers.map((user, index) => (
-                <tr key={index} className="hover:bg-gray-200">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {user.userName}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {user.lastName}
-                    </div>
-                  </td>
-                  <td>
-                    <button
-                      onClick={() => {
-                        setEditId(user.useID);
-                        setShowEdit(true);
-                        setOnQueUser(user.userName);
-                        setOnQueLastName(user.lastName);
-                        setLoading("update");
-                      }}
-                      className="text-green-500 hover:underline"
-                    >
-                      Edit
-                    </button>
-                  </td>
-                  <td>
-                    <button
-                      onClick={() => handleDelete(user.useID)}
-                      className="text-red-500 hover:underline"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))
-            ) : null}
-          </tbody>
-        </table>
-        {/* pagination */}
-
-        <div className="w-full bg-white p-2 flex justify-center items-center gap-2 mt-2">
-          {fetchStatus === null && (
-            <>
-              <button
-                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                disabled={currentPage === 1}
-                className="hover:underline disabled:opacity-50"
-              >
-                Prev
-              </button>
-
-              {Array.from({ length: totalPages }, (_, i) => (
-                <button
-                  key={i + 1}
-                  onClick={() => setCurrentPage(i + 1)}
-                  style={{
-                    padding: "5px 10px",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    background: currentPage === i + 1 ? "blue" : "lightgray",
-                    color: currentPage === i + 1 ? "white" : "black",
-                    cursor: "pointer",
-                  }}
-                >
-                  {i + 1}
-                </button>
-              ))}
-
-              <button
-                onClick={() =>
-                  setCurrentPage((p) => Math.min(p + 1, totalPages))
-                }
-                disabled={currentPage === totalPages}
-                className="hover:underline disabled:opacity-50"
-              >
-                Next
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-      {showEdit && (
-        <EditModal
-          editId={editID}
-          onClose={() => setShowEdit(false)}
-          onReload={() => setReload((prev) => !prev)}
-          onqueuser={onQueUser}
-          onquelastname={onQueLastName}
-          onComplete={() => setComplete(true)}
-        />
-      )}
     </div>
   );
 }

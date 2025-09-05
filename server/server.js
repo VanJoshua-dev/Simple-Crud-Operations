@@ -1,3 +1,4 @@
+require('dotenv').config()
 const express = require("express");
 const cors = require("cors");
 const connectDB = require("./db");
@@ -8,13 +9,14 @@ app.use(express.json());
 
 // Root endpoint
 app.get("/", (req, res) => {
-  res.send("<h1 style='color: green; width: 100%; height: 70vh; text-align: center; font-size: 5rem; display: flex; justify-content: center; align-items: center;'>Server is Running...</h1>");
+  res.send(`<h1 style='color: green; width: 100%; height: 70vh; text-align: center; font-size: 5rem; display: flex; justify-content: center; align-items: center;'>Server is Running...</h1>`);
 });
 
 app.get("/api/getUsers", async (req, res) => {
+  const isAdmin = 0;
   try {
     const conn = await connectDB();
-    const [results] = await conn.query("SELECT * FROM users");
+    const [results] = await conn.query("SELECT * FROM users WHERE isAdmin = ?", [isAdmin]);
     res.json({ message: "users", results });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -37,7 +39,7 @@ app.post("/api/addUser", async (req, res) => {
 
 app.delete("/api/deleteUser", async (req, res) => {
   try {
-    const { userID } = req.body; // match your column name
+    const { userID } = req.body;
 
     if (!userID) {
       return res.status(400).json({ error: "Missing user ID" });
