@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import EditModal from "../modals/EditModal";
 import Swal from "sweetalert2";
-import {useNavigate} from "react-router-dom"
+import { useNavigate } from "react-router-dom";
 import { TypingDotsLoader } from "react-loaderkit";
 import { useAuth } from "../AuthContext";
 function AdminPanel() {
@@ -19,7 +19,7 @@ function AdminPanel() {
   const [fetchStatus, setFetchStatus] = useState(null);
   const [isLogout, setLogout] = useState(false);
 
-  const {setAuth} = useAuth();
+  const { setAuth } = useAuth();
   const navigate = useNavigate();
   //handle login
   const handleAdd = async (e) => {
@@ -65,62 +65,62 @@ function AdminPanel() {
   };
 
   //handle fetch
-   useEffect(() => {
-      let ws;
-  
-      const fetchUser = async () => {
-        setFetchStatus("fetching");
-        try {
-          const res = await fetch("http://localhost:5000/api/getUsers");
-          if (!res.ok) {
-            setFetchStatus("fetchFailed");
-            return;
-          }
-  
-          const data = await res.json();
-          if (!data.results || data.results.length === 0) {
-            setFetchStatus("empty");
-          } else {
-            setUsers(data.results);
-            setFetchStatus(null);
-          }
-        } catch (error) {
-          console.error("Fetch error:", error);
+  useEffect(() => {
+    let ws;
+
+    const fetchUser = async () => {
+      setFetchStatus("fetching");
+      try {
+        const res = await fetch("http://localhost:5000/api/getUsers");
+        if (!res.ok) {
           setFetchStatus("fetchFailed");
+          return;
         }
-      };
-  
-      // Initial fetch
-      fetchUser();
-  
-      // Establish websocket connection
-      ws = new WebSocket("ws://localhost:5000");
-  
-      ws.onopen = () => console.log("✅ WebSocket connected");
-  
-      ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-  
-        if (msg.type === "fetchUsers") {
-          setUsers(msg.users);
+
+        const data = await res.json();
+        if (!data.results || data.results.length === 0) {
+          setFetchStatus("empty");
+        } else {
+          setUsers(data.results);
           setFetchStatus(null);
         }
-  
-        if (
-          msg.type === "userAdded" ||
-          msg.type === "userUpdated" ||
-          msg.type === "userDeleted"
-        ) {
-          fetchUser(); // update data list
-        }
-      };
-  
-      ws.onclose = () => console.log(" WebSocket disconnected");
-  
-      return () => {
-        if (ws) ws.close();
-      };
-    }, [reload]);
+      } catch (error) {
+        console.error("Fetch error:", error);
+        setFetchStatus("fetchFailed");
+      }
+    };
+
+    // Initial fetch
+    fetchUser();
+
+    // Establish websocket connection
+    ws = new WebSocket("ws://localhost:5000");
+
+    ws.onopen = () => console.log("✅ WebSocket connected");
+
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+
+      if (msg.type === "fetchUsers") {
+        setUsers(msg.users);
+        setFetchStatus(null);
+      }
+
+      if (
+        msg.type === "userAdded" ||
+        msg.type === "userUpdated" ||
+        msg.type === "userDeleted"
+      ) {
+        fetchUser(); // update data list
+      }
+    };
+
+    ws.onclose = () => console.log(" WebSocket disconnected");
+
+    return () => {
+      if (ws) ws.close();
+    };
+  }, [reload]);
 
   //handle Delete
   const handleDelete = async (id) => {
@@ -183,11 +183,13 @@ function AdminPanel() {
         setAuth({ accessToken: null, role: null, user: null });
         setLogout(false);
 
-        // Redirect to login
-        navigate("/", { replace: true });
+        return true;
+      } else {
+        return false;
       }
     } catch (error) {
       console.error(error);
+      return false;
     }
   };
   useEffect(() => {
@@ -203,7 +205,48 @@ function AdminPanel() {
       });
 
       if (result.isConfirmed) {
-        handleLogout();
+        // Show loading
+        Swal.fire({
+          title: "Logging out...",
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          },
+        });
+
+        try {
+          const success = await handleLogout();
+
+          Swal.close();
+
+          if (success) {
+            Swal.fire({
+              icon: "success",
+              title: "Logged out successfully",
+              timer: 1500,
+              showConfirmButton: false,
+            });
+
+            setTimeout(() => {
+              navigate("/", { replace: true });
+            }, 1500);
+          } else {
+            Swal.fire({
+              icon: "error",
+              title: "Logout failed",
+              text: "Could not log you out. Please try again.",
+            });
+            setLogout(false);
+          }
+        } catch (error) {
+          Swal.close(); // close loading
+          Swal.fire({
+            icon: "error",
+            title: "Logout failed",
+            text: error.message || "Something went wrong. Please try again.",
+          });
+          setLogout(false); // reset logout state if error happens
+        }
       } else {
         setLogout(false); // reset if canceled
       }

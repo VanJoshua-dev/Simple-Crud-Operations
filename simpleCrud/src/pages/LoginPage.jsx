@@ -47,7 +47,7 @@ function LoginPage() {
       } else {
         await Swal.fire({
           icon: "error",
-          title: "",
+          title: "Opss..",
           text: data.error || "Something went wrong!",
         });
       }

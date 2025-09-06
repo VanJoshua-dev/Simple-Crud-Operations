@@ -87,13 +87,16 @@ function UserPage() {
         setAuth({ accessToken: null, role: null, user: null });
         setLogout(false);
 
-        // Redirect to login
-        navigate("/", { replace: true });
+        return true;
+      } else {
+        return false;
       }
     } catch (error) {
       console.error(error);
+      return false; 
     }
   };
+
   useEffect(() => {
     if (!isLogOut) return;
 
@@ -107,7 +110,48 @@ function UserPage() {
       });
 
       if (result.isConfirmed) {
-        handleLogout();
+        // Show loading
+        Swal.fire({
+          title: "Logging out...",
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          },
+        });
+
+        try {
+          const success = await handleLogout();
+
+          Swal.close();
+
+          if (success) {
+            Swal.fire({
+              icon: "success",
+              title: "Logged out successfully",
+              timer: 1500,
+              showConfirmButton: false,
+            });
+
+            setTimeout(() => {
+              navigate("/", { replace: true });
+            }, 1500);
+          } else {
+            Swal.fire({
+              icon: "error",
+              title: "Logout failed",
+              text: "Could not log you out. Please try again.",
+            });
+            setLogout(false);
+          }
+        } catch (error) {
+          Swal.close(); // close loading
+          Swal.fire({
+            icon: "error",
+            title: "Logout failed",
+            text: error.message || "Something went wrong. Please try again.",
+          });
+          setLogout(false); // reset logout state if error happens
+        }
       } else {
         setLogout(false); // reset if canceled
       }
