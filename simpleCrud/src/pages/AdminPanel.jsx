@@ -65,34 +65,62 @@ function AdminPanel() {
   };
 
   //handle fetch
-  useEffect(() => {
-    setFetchStatus("fetching");
-    const fetchUser = async () => {
-      try {
-        const res = await fetch("http://localhost:5000/api/getUsers");
-
-        if (!res.ok) {
+   useEffect(() => {
+      let ws;
+  
+      const fetchUser = async () => {
+        setFetchStatus("fetching");
+        try {
+          const res = await fetch("http://localhost:5000/api/getUsers");
+          if (!res.ok) {
+            setFetchStatus("fetchFailed");
+            return;
+          }
+  
+          const data = await res.json();
+          if (!data.results || data.results.length === 0) {
+            setFetchStatus("empty");
+          } else {
+            setUsers(data.results);
+            setFetchStatus(null);
+          }
+        } catch (error) {
+          console.error("Fetch error:", error);
           setFetchStatus("fetchFailed");
-          return;
         }
-
-        const data = await res.json();
-        console.log("Server response:", data);
-
-        if (!data.results || data.results.length === 0) {
-          setFetchStatus("empty");
-        } else {
-          setUsers(data.results);
+      };
+  
+      // Initial fetch
+      fetchUser();
+  
+      // Establish websocket connection
+      ws = new WebSocket("ws://localhost:5000");
+  
+      ws.onopen = () => console.log("✅ WebSocket connected");
+  
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+  
+        if (msg.type === "fetchUsers") {
+          setUsers(msg.users);
           setFetchStatus(null);
         }
-      } catch (error) {
-        console.error("Fetch error:", error);
-        setFetchStatus("fetchFailed");
-      }
-    };
-
-    fetchUser();
-  }, [reload]);
+  
+        if (
+          msg.type === "userAdded" ||
+          msg.type === "userUpdated" ||
+          msg.type === "userDeleted"
+        ) {
+          fetchUser(); // update data list
+        }
+      };
+  
+      ws.onclose = () => console.log(" WebSocket disconnected");
+  
+      return () => {
+        if (ws) ws.close();
+      };
+    }, [reload]);
 
   //handle Delete
   const handleDelete = async (id) => {

@@ -5,49 +5,28 @@ import Swal from "sweetalert2";
 import { useAuth } from "../AuthContext";
 import { TypingDotsLoader } from "react-loaderkit";
 function UserPage() {
-  const {auth} = useAuth();
-  const {setAuth} = useAuth();
+  const { auth } = useAuth();
+  const { setAuth } = useAuth();
   const [users, setUsers] = useState([]);
   const [reload, setReload] = useState(false);
   const [fetchStatus, setFetchStatus] = useState(null);
   const [isLogOut, setLogout] = useState(false);
   const navigate = useNavigate();
-  //Refresh data every 30 seconds
-  const [seconds, setSeconds] = useState(30);
-  useEffect(() => {
-    if (seconds === 0) {
-      console.log("Refreshing data...");
-      setSeconds(30); // reset timer
-      setReload((prev) => !prev);
-      return;
-    }
-    let interval;
-    if (fetchStatus != "fetching" || fetchStatus === "fetchFailed") {
-      interval = setInterval(() => {
-        setSeconds((prev) => prev - 1);
-      }, 1000);
-    } else {
-      setSeconds(30);
-    }
-
-    return () => clearInterval(interval);
-  }, [seconds, fetchStatus]);
 
   //handle fetch
   useEffect(() => {
-    setFetchStatus("fetching");
+    let ws;
+
     const fetchUser = async () => {
+      setFetchStatus("fetching");
       try {
         const res = await fetch("http://localhost:5000/api/getUsers");
-
         if (!res.ok) {
           setFetchStatus("fetchFailed");
           return;
         }
 
         const data = await res.json();
-        console.log("Server response:", data);
-
         if (!data.results || data.results.length === 0) {
           setFetchStatus("empty");
         } else {
@@ -60,53 +39,82 @@ function UserPage() {
       }
     };
 
+    // Initial fetch
     fetchUser();
+
+    // Establish websocket connection
+    ws = new WebSocket("ws://localhost:5000");
+
+    ws.onopen = () => console.log("✅ WebSocket connected");
+
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+
+      if (msg.type === "fetchUsers") {
+        setUsers(msg.users);
+        setFetchStatus(null);
+      }
+
+      if (
+        msg.type === "userAdded" ||
+        msg.type === "userUpdated" ||
+        msg.type === "userDeleted"
+      ) {
+        fetchUser(); // Update data list
+      }
+    };
+
+    ws.onclose = () => console.log(" WebSocket disconnected");
+
+    return () => {
+      if (ws) ws.close();
+    };
   }, [reload]);
 
   const handleLogout = async () => {
-      try {
-        // Call backend to clear refresh token cookie
-        const result = await fetch("http://localhost:5001/api/logout", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include", // important if cookie is httpOnly
-        });
-  
-        if (result.ok) {
-          // Clear auth context / local state
-          setAuth({ accessToken: null, role: null, user: null });
-          setLogout(false);
-  
-          // Redirect to login
-          navigate("/", { replace: true });
-        }
-      } catch (error) {
-        console.error(error);
+    try {
+      // Call backend to clear refresh token cookie
+      const result = await fetch("http://localhost:5001/api/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include", // important if cookie is httpOnly
+      });
+
+      if (result.ok) {
+        // Clear auth context / local state
+        setAuth({ accessToken: null, role: null, user: null });
+        setLogout(false);
+
+        // Redirect to login
+        navigate("/", { replace: true });
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+  useEffect(() => {
+    if (!isLogOut) return;
+
+    const showAlert = async () => {
+      const result = await Swal.fire({
+        icon: "question",
+        title: "Are you sure you want to logout?",
+        confirmButtonText: "Logout",
+        showCancelButton: true,
+        cancelButtonText: "Cancel",
+      });
+
+      if (result.isConfirmed) {
+        handleLogout();
+      } else {
+        setLogout(false); // reset if canceled
       }
     };
-    useEffect(() => {
-      if (!isLogOut) return;
-  
-      const showAlert = async () => {
-        const result = await Swal.fire({
-          icon: "question",
-          title: "Are you sure you want to logout?",
-          confirmButtonText: "Logout",
-          showCancelButton: true,
-          cancelButtonText: "Cancel",
-        });
-  
-        if (result.isConfirmed) {
-          handleLogout();
-        } else {
-          setLogout(false); // reset if canceled
-        }
-      };
-  
-      showAlert();
-    }, [isLogOut]);
+
+    showAlert();
+  }, [isLogOut]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const usersPerPage = 10; // show 5 users per page
@@ -130,37 +138,8 @@ function UserPage() {
           Logout
         </button>
       </div>
-      <div className="w-full flex justify-between items-center px-10">
-        <span className="text-2xl font-bold">User: {" "} {auth.userName}</span>
-        {fetchStatus === "fetching" ? (
-          <span className="flex justify-center items-center gap-2">
-            Refreshing <TypingDotsLoader size={30} color="black" />
-          </span>
-        ) : fetchStatus === "fetchFailed" ? (
-          <span className="flex justify-center items-center gap-2">
-            Fetch failed, retrying in{" "}
-            <span
-              className={`font-bold ${
-                seconds <= 10 ? "text-red-500" : "text-black"
-              }`}
-            >
-              {seconds}
-            </span>
-            .
-          </span>
-        ) : fetchStatus === null ? (
-          <span>
-            Refreshing data in{" "}
-            <span
-              className={`font-bold ${
-                seconds <= 10 ? "text-red-500" : "text-black"
-              }`}
-            >
-              {seconds}
-            </span>
-            .
-          </span>
-        ) : null}
+      <div className="w-full flex justify-start items-center px-10">
+        <span className="text-2xl font-bold">User: {auth.userName}</span>
       </div>
       {/* fetch data */}
       <div className="p-2 w-full h-full bg-gray-200 flex items-center flex-col shadow-gray-600 shadow-2xl rounded-sm">
